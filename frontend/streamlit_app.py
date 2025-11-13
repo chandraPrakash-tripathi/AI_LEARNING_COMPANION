@@ -32,7 +32,7 @@ if page == "Gradient Descent":
 
     st.markdown("""
     **Concept:**  
-    Gradient Descent minimizes the cost function by updating weights in the opposite direction of the gradient.
+    Gradient-Descent minimizes the cost function by updating weights in the opposite direction of the gradient.
     """)
 
 # -----------------------
