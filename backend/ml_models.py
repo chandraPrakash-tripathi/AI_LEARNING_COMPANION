@@ -12,9 +12,10 @@ def quadratic_grad(theta):
 
 def compute_linear_loss_and_grad(theta, X, y):
     """
-    theta: array([theta0, theta1, theta2...]) where theta[1:] correspond to features
+    theta: array([theta0, theta1, ...])
     X: shape (m, n_features)
     y: shape (m,)
+    Returns: J (float), grad (ndarray), preds (ndarray)
     """
     m = X.shape[0]
     preds = theta[0] + X.dot(theta[1:])
@@ -23,7 +24,7 @@ def compute_linear_loss_and_grad(theta, X, y):
     grad0 = (1.0 / m) * np.sum(residuals)
     grad_rest = (1.0 / m) * (X.T.dot(residuals))
     grad = np.concatenate(([grad0], grad_rest))
-    return J, grad
+    return J, grad, preds
 
 # ---------- dataset helper ----------
 def make_linear_dataset(n_samples=80, noise=8.0, x_scale=3.0, seed=42):
@@ -42,18 +43,17 @@ def run_gradient_descent_linear(
     noise_scale=0.0
 ):
     """
-    Supports optimizer in: Batch, SGD, Mini-batch, Momentum, RMSProp, Adam
-    For Momentum/RMSProp/Adam we run in Batch mode per-epoch by default (but will also accept per-batch updates if SGD/Mini-batch).
-    Returns final theta and history {theta: [...], loss: [...]}
+    Supports Batch, SGD, Mini-batch, Momentum, RMSProp, Adam.
+    History now includes 'grad' and (for linear) 'preds' at each recorded update step.
     """
     rng = np.random.default_rng(seed)
     m = X.shape[0]
     theta = theta_init.copy().astype(float)
-    history = {"theta": [], "loss": []}
+    history = {"theta": [], "loss": [], "grad": [], "preds": []}
 
-    # initialize momentum / rmsprop / adam states
-    v = np.zeros_like(theta)          # for momentum (velocity) or adam first moment
-    s = np.zeros_like(theta)          # for RMSProp (squared gradient) or adam second moment
+    # optimizer states
+    v = np.zeros_like(theta)
+    s = np.zeros_like(theta)
     t_step = 0
 
     def batch_update(theta, grad, lr, opt):
@@ -76,32 +76,38 @@ def run_gradient_descent_linear(
         return theta
 
     for epoch in range(int(epochs)):
-        if optimizer == "Batch" or optimizer in ("Momentum", "RMSProp", "Adam"):
-            # compute full-batch gradient
-            J, grad = compute_linear_loss_and_grad(theta, X, y)
+        if optimizer in ("Batch", "Momentum", "RMSProp", "Adam"):
+            # full-batch evaluation
+            J, grad, preds = compute_linear_loss_and_grad(theta, X, y)
             if noise_scale > 0.0:
                 grad = grad + rng.normal(scale=noise_scale, size=grad.shape)
             theta = batch_update(theta, grad, lr, optimizer if optimizer in ("Momentum","RMSProp","Adam") else "BGD")
             history["theta"].append(theta.copy().tolist())
             history["loss"].append(float(J))
+            history["grad"].append(grad.copy().tolist())
+            history["preds"].append(preds.tolist())
         else:
-            # SGD or Mini-batch: iterate over shuffled batches
+            # SGD or Mini-batch: per-batch updates and record each update
             idx = np.arange(m)
             rng.shuffle(idx)
             batches = [idx[i:i+batch_size] for i in range(0, m, batch_size)]
             for b in batches:
                 Xb = X[b]
                 yb = y[b]
-                Jb, gradb = compute_linear_loss_and_grad(theta, Xb, yb)
+                Jb, gradb, preds_b = compute_linear_loss_and_grad(theta, Xb, yb)
                 if noise_scale > 0.0:
                     gradb = gradb + rng.normal(scale=noise_scale, size=gradb.shape)
-                # For SGD/Mini-batch, support applying momentum/rms/adam per-update if requested by setting optimizer accordingly
                 if optimizer in ("Momentum", "RMSProp", "Adam"):
                     theta = batch_update(theta, gradb, lr, optimizer)
                 else:
                     theta = theta - lr * gradb
+                # store full-batch loss for clarity? store batch loss (Jb) and grad computed on batch
                 history["theta"].append(theta.copy().tolist())
                 history["loss"].append(float(Jb))
+                history["grad"].append(gradb.copy().tolist())
+                # store preds for the batch indices only as a small helpful hint (keep size small)
+                # For simplicity, store preds computed on the batch (not full dataset)
+                history["preds"].append(preds_b.tolist())
 
     return theta.tolist(), history
 
@@ -109,7 +115,7 @@ def run_gradient_descent_quadratic(theta_init, lr, epochs, optimizer="Batch", se
                                    momentum_beta=0.9, rms_beta=0.9, adam_beta1=0.9, adam_beta2=0.999, adam_eps=1e-8, noise_scale=0.0):
     rng = np.random.default_rng(seed)
     theta = float(theta_init)
-    history = {"theta": [], "loss": []}
+    history = {"theta": [], "loss": [], "grad": []}
 
     v = 0.0
     s = 0.0
@@ -137,23 +143,17 @@ def run_gradient_descent_quadratic(theta_init, lr, epochs, optimizer="Batch", se
 
         history["theta"].append(float(theta))
         history["loss"].append(float(quadratic_loss(theta)))
+        history["grad"].append(float(grad))
 
     return float(theta), history
 
 # ---------- contour grid (loss surface) ----------
 def compute_contour_grid(X, y, theta0_vals, theta1_vals):
-    """
-    Compute loss J for each (theta0, theta1) pair.
-    theta0_vals, theta1_vals are 1D arrays (linspace).
-    Returns grid JJ shaped (len(theta1_vals), len(theta0_vals)) so that
-    plotting with meshgrid(T0, T1) works similarly to earlier frontend.
-    NOTE: this is CPU heavy for large grids; keep resolution small (e.g., 60-200).
-    """
     T0, T1 = np.meshgrid(theta0_vals, theta1_vals)
     JJ = np.zeros_like(T0, dtype=float)
     for i in range(T0.shape[0]):
         for j in range(T0.shape[1]):
             t = np.array([T0[i, j], T1[i, j]])
-            Jtmp, _ = compute_linear_loss_and_grad(t, X, y)
+            Jtmp, _, _ = compute_linear_loss_and_grad(t, X, y)
             JJ[i, j] = Jtmp
     return T0, T1, JJ
