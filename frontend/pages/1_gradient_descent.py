@@ -22,7 +22,7 @@ def main():
         sidebar_vals = render_sidebar(st.session_state)
 
     with col_controls:
-        render_controls_stepplay()   # No returned vis_col anymore
+        render_controls_stepplay()   
 
 
     run_button = sidebar_vals.get("run_button")
