@@ -1,5 +1,8 @@
 # tests/test_ml_models.py
 import numpy as np
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from backend import ml_models as mm
 
 def test_quadratic_grad():
