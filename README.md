@@ -1,10 +1,10 @@
-# 📘 AI Learning Companion — README
+# AI Learning Companion 
 
 An interactive educational web app designed to help understand **Machine Learning concepts visually**. Built using **Streamlit** (frontend UI) and **Flask** (backend ML engine)
 
 ---
 
-## 🎯 Project Overview
+## Project Overview
 
 **AI Learning Companion**  The app simplifies abstract topics by combining:
 
@@ -17,21 +17,21 @@ This project replicates the experience of an “ML playground” — perfect for
 
 ---
 
-## 🧠 Key Features
+## Key Features
 
-### ✅ 1. **Gradient Descent Visualization**
+### 1. **Gradient Descent Visualization**
 
 * Watch gradient descent move step-by-step.
 * Adjust learning rate, iterations, and noise.
 * View the contour plot, loss curve, and parameter updates.
 
-### ✅ 2. **Activation Functions Playground**
+### 2. **Activation Functions Playground**
 
 * Explore ReLU, Sigmoid, Tanh, LeakyReLU, and more.
 * Visual + mathematical formula breakdown.
 * Adjustable input domain & parameters.
 
-### ✅ 3. **Hyperparameter Experimentation**
+### 3. **Hyperparameter Experimentation**
 
 * Modify:
 
@@ -41,7 +41,7 @@ This project replicates the experience of an “ML playground” — perfect for
   * regularization strength
 * Visualize how hyperparameters influence training.
 
-### ✅ 4. **ML Model Comparison Dashboard**
+### 4. **ML Model Comparison Dashboard**
 
 * Compare classic ML models:
 
@@ -54,7 +54,7 @@ This project replicates the experience of an “ML playground” — perfect for
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer          | Technology                      |
 | -------------- | ------------------------------- |
@@ -66,7 +66,7 @@ This project replicates the experience of an “ML playground” — perfect for
 
 ---
 
-## 🚀 How It Works
+## How It Works
 
 1. **Streamlit** handles all UI interactions and visualizations.
 2. User inputs → sent to **Flask backend**.
@@ -75,26 +75,26 @@ This project replicates the experience of an “ML playground” — perfect for
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ---
 
-## ▶️ Running the Project
+## Running the Project
 
-### 1️⃣ Install dependencies
+### 1️ Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2️⃣ Start the Flask backend
+### 2️ Start the Flask backend
 
 ```bash
 cd backend
 python app.py
 ```
 
-### 3️⃣ Start the Streamlit frontend
+### 3️ Start the Streamlit frontend
 
 ```bash
 cd frontend
