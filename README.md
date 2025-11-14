@@ -98,7 +98,7 @@ python app.py
 
 ```bash
 cd frontend
-streamlit run streamlit_app.py
+streamlit run 0_HOME.py
 ```
 
 ---
