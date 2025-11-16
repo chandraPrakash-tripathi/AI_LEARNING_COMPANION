@@ -4,7 +4,6 @@ import streamlit as st
 import altair as alt
 import pandas as pd
 
-
 def plot_linear_visuals(data_sample, theta_closed, thetas, losses, grads, contour, step):
     X = np.array(data_sample["x"])
     y = np.array(data_sample["y"])
@@ -99,3 +98,69 @@ def plot_derivative(x, dy):
     df = pd.DataFrame({"x": x, "derivative": dy})
     return alt_line_chart(df, "x", "derivative", title="Derivative")
 
+#activation functions and their derivatives for visualization
+def plot_activation(ax, x, y, label=None):
+    ax.plot(x, y, linewidth=2, label=label)
+    ax.set_xlabel("x")
+    ax.set_ylabel("f(x)")
+    ax.grid(True)
+
+def plot_derivative(ax, x, dy, label=None):
+    ax.plot(x, dy, linestyle="--", linewidth=1.5, label=label)
+    ax.set_xlabel("x")
+    ax.set_ylabel("f'(x)")
+    ax.grid(True)
+
+def alt_line_chart(df, x_col, y_col, title=None, width=None, height=300):
+    chart = alt.Chart(df).mark_line().encode(
+        x=x_col, y=y_col, tooltip=[x_col, y_col]
+    )
+    props = {}
+    if title is not None:
+        props["title"] = title
+    if width is not None:
+        props["width"] = width
+    if height is not None:
+        props["height"] = height
+    if props:
+        chart = chart.properties(**props)
+    return chart
+
+def render_activation_plots(activation_name, x, y, dy, show_derivative):
+    """
+    Renders the two side-by-side charts:
+        - Activation value plot
+        - Derivative plot (toggle-able)
+
+    Parameters
+    ----------
+    activation_name : str
+        Name of the activation function
+    x : np.ndarray
+        Input domain
+    y : np.ndarray
+        Activation(x)
+    dy : np.ndarray
+        Activation derivative values
+    show_derivative : bool
+        Whether to display the derivative
+    """
+
+    col1, col2 = st.columns([1, 1])
+
+    # --- Activation plot ---
+    with col1:
+        st.subheader(f"{activation_name} — value")
+        df_val = pd.DataFrame({"x": x, f"{activation_name}(x)": y})
+        chart_val = alt_line_chart(df_val, "x", f"{activation_name}(x)")
+        st.altair_chart(chart_val, use_container_width=True)
+
+    # --- Derivative plot ---
+    with col2:
+        st.subheader(f"{activation_name} — derivative")
+        if show_derivative:
+            df_der = pd.DataFrame({"x": x, "derivative": dy})
+            chart_der = alt_line_chart(df_der, "x", "derivative")
+            st.altair_chart(chart_der, use_container_width=True)
+        else:
+            st.info("Derivative hidden (toggle from sidebar)")

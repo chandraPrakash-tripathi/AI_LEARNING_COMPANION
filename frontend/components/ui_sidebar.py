@@ -1,4 +1,7 @@
 import streamlit as st
+from functools import partial
+from typing import Optional, Dict, Any
+from components.activations import ACTIVATIONS
 
 def render_sidebar(state):
 
@@ -100,6 +103,78 @@ def render_sidebar(state):
     sidebar_values["run_button"] = run_button
 
     return sidebar_values
+
+
+
+
+
+def render_toolbar() -> Dict[str, Any]:
+    """Render the sidebar controls and return a dict of values.
+
+    Usage:
+        from components.ui_sidebar import render_sidebar
+        controls = render_sidebar()
+        activation_name = controls['activation_name']
+        # ...
+
+    Returns a dictionary with the following keys:
+      - activation_name (str)
+      - input_min (float)
+      - input_max (float)
+      - show_derivative (bool)
+      - sample_points (int)
+      - alpha (Optional[float])
+      - beta (Optional[float])
+      - hidden_units (int)
+      - epochs (int)
+      - lr (float)
+      - batch_size (int)
+      - train_button (bool)
+
+    This isolates all sidebar UI logic so app.py can remain focused on layout
+    and plotting.
+    """
+
+    with st.sidebar:
+        st.header("Controls")
+        activation_name = st.selectbox("Activation", list(ACTIVATIONS.keys()), index=3)
+        input_min, input_max = st.slider("Plot range (x)", -10.0, 10.0, (-6.0, 6.0), step=0.5)
+        show_derivative = st.checkbox("Show derivative", True)
+        sample_points = st.slider("Number of sample points to show in table", 5, 50, 11)
+
+        # Activation-specific params
+        alpha: Optional[float] = None
+        beta: Optional[float] = None
+        if activation_name == "leaky_relu":
+            alpha = st.slider("Leaky ReLU alpha", 0.001, 0.5, 0.01)
+        if activation_name == "elu":
+            alpha = st.slider("ELU alpha", 0.1, 3.0, 1.0)
+        if activation_name == "swish":
+            beta = st.slider("Swish beta", 0.1, 5.0, 1.0)
+
+        st.markdown("---")
+        st.subheader("Toy NN settings")
+        hidden_units = st.slider("Hidden units (single hidden layer)", 1, 128, 16)
+        epochs = st.slider("Training epochs", 1, 1000, 200)
+        lr = st.number_input("Learning rate", min_value=1e-6, max_value=1.0, value=0.01, format="%.6f")
+        batch_size = st.slider("Batch size", 4, 128, 32)
+        train_button = st.button("Train toy model")
+
+    return {
+        "activation_name": activation_name,
+        "input_min": input_min,
+        "input_max": input_max,
+        "show_derivative": show_derivative,
+        "sample_points": sample_points,
+        "alpha": alpha,
+        "beta": beta,
+        "hidden_units": hidden_units,
+        "epochs": epochs,
+        "lr": lr,
+        "batch_size": batch_size,
+        "train_button": train_button,
+    }
+
 
 
 
