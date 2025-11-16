@@ -7,8 +7,7 @@ from functools import partial
 import requests
 import json
 
-# ---------- Config ----------
-BACKEND = "http://localhost:5000"  # change to your backend URL if needed
+BACKEND = "http://localhost:5000" 
 
 st.set_page_config(page_title="Activation Function Playground", layout="wide")
 
@@ -95,7 +94,7 @@ with st.sidebar:
     epochs = st.slider("Training epochs", 1, 1000, 200)
     lr = st.number_input("Learning rate", min_value=1e-6, max_value=1.0, value=0.01, format="%.6f")
     batch_size = st.slider("Batch size", 4, 128, 32)
-    train_button = st.button("Train toy model (backend)")
+    train_button = st.button("Train toy model")
 
 # ---------- Prepare functions and data (local for plots) ----------
 x = np.linspace(input_min, input_max, 400)
@@ -167,7 +166,7 @@ Y = np.sin(X)
 
 # ---------- Train: call backend ----------
 st.markdown("---")
-st.write("This will call the backend to train a tiny 1-hidden-layer network using the selected activation in the hidden layer. Predictions and loss curve returned by backend will be shown here.")
+st.write("This will  train a tiny 1-hidden-layer network using the selected activation in the hidden layer.")
 
 if train_button:
     payload = {
@@ -198,7 +197,6 @@ if train_button:
             st.stop()
 
         # show results
-        st.subheader("Training finished (backend)")
         if "losses" in data and len(data["losses"]) > 0:
             st.write(f"Sampled losses: {data['losses'][:5]} ... (final {data['losses'][-1]:.6f})")
 
@@ -246,4 +244,4 @@ if train_button:
         st.error(f"Training failed: {resp.status_code} {resp.text}")
 
 else:
-    st.info("Click 'Train toy model (backend)' in the sidebar to train a small network using the selected activation.")
+    st.info("Click Train toy model")

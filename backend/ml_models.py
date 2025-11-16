@@ -160,7 +160,9 @@ def compute_contour_grid(X, y, theta0_vals, theta1_vals):
 
 
 ## activation functions
+# sigmoid 
 def sigmoid(x): return 1 / (1 + np.exp(-x))
+# sigmoid derivative
 def sigmoid_deriv(x): s = sigmoid(x); return s * (1 - s)
 def tanh(x): return np.tanh(x)
 def tanh_deriv(x): return 1 - np.tanh(x)**2
@@ -177,7 +179,7 @@ def mish(x):
     soft = np.log1p(np.exp(x)); return x * np.tanh(soft)
 def mish_deriv(x):
     soft = np.log1p(np.exp(x)); tanh_soft = np.tanh(soft); return tanh_soft + x*(1 - tanh_soft**2)*sigmoid(x)
-
+#func and derivative pairs
 ACTIVATIONS = {
     "sigmoid": (sigmoid, sigmoid_deriv),
     "tanh": (tanh, tanh_deriv),
@@ -187,15 +189,16 @@ ACTIVATIONS = {
     "swish": (swish, swish_deriv),
     "mish": (mish, mish_deriv),
 }
+#eq
 def mse(y_true, y_pred): return np.mean((y_true - y_pred)**2)
-
+#eq
 def forward(params, X_batch, activation_hidden):
     W1, b1, W2, b2 = params
     Z1 = X_batch.dot(W1) + b1
     A1 = activation_hidden(Z1)
     Z2 = A1.dot(W2) + b2
     return Z1, A1, Z2
-
+#eq
 def init_params(in_dim, hidden_dim, out_dim, scale=0.1, seed=1):
     rng = np.random.RandomState(seed)
     W1 = rng.randn(in_dim, hidden_dim) * scale
