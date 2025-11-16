@@ -2,10 +2,20 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 from ml_models import (
+    ACTIVATIONS,
+    elu,
+    elu_deriv,
+    init_params,
+    leaky_relu,
+    leaky_relu_deriv,
     make_linear_dataset,
+    mse,
     run_gradient_descent_linear,
     run_gradient_descent_quadratic,
     compute_contour_grid,
+    swish,
+    swish_deriv,
+    forward
 )
 
 app = Flask(__name__)
@@ -109,6 +119,132 @@ def contour_grid():
         "theta0_vals": theta0_vals.tolist(),
         "theta1_vals": theta1_vals.tolist(),
         "JJ": JJ.tolist()
+    })
+
+
+## activation functions endpoint
+@app.route("/activation", methods=["POST"])
+def activation_endpoint():
+    req = request.json or {}
+    name = req.get("activation", "relu")
+    n = int(req.get("n_points", 400))
+    mn = float(req.get("input_min", -6))
+    mx = float(req.get("input_max", 6))
+    alpha = req.get("alpha", None)
+    beta = req.get("beta", None)
+
+    x = np.linspace(mn, mx, n)
+
+    if name not in ACTIVATIONS and name not in ("leaky_relu", "elu", "swish"):
+        return jsonify({"error": f"Unknown activation '{name}'"}), 400
+
+    # compute with params if required
+    if name == "leaky_relu":
+        a = float(alpha) if alpha is not None else 0.01
+        y = leaky_relu(x, alpha=a)
+        dy = leaky_relu_deriv(x, alpha=a)
+    elif name == "elu":
+        a = float(alpha) if alpha is not None else 1.0
+        y = elu(x, alpha=a)
+        dy = elu_deriv(x, alpha=a)
+    elif name == "swish":
+        b = float(beta) if beta is not None else 1.0
+        y = swish(x, beta=b)
+        dy = swish_deriv(x, beta=b)
+    else:
+        fn, der = ACTIVATIONS[name]
+        y = fn(x)
+        dy = der(x)
+
+    return jsonify({"x": x.tolist(), "y": y.tolist(), "dy": dy.tolist()})
+
+@app.route("/train", methods=["POST"])
+def train_endpoint():
+    req = request.json or {}
+    activation_name = req.get("activation", "relu")
+    hidden_units = int(req.get("hidden_units", 16))
+    epochs = int(req.get("epochs", 200))
+    lr = float(req.get("lr", 0.01))
+    batch_size = int(req.get("batch_size", 32))
+    seed = int(req.get("seed", 42))
+    alpha = req.get("alpha", None)
+    beta = req.get("beta", None)
+
+    if activation_name not in ACTIVATIONS and activation_name not in ("leaky_relu", "elu", "swish"):
+        return jsonify({"error": f"Unknown activation '{activation_name}'"}), 400
+
+    rng = np.random.RandomState(seed)
+    N = 256
+    X = rng.uniform(-6, 6, size=(N, 1))
+    Y = np.sin(X)
+
+    # choose activation wrappers for training
+    if activation_name == "leaky_relu":
+        a = float(alpha) if alpha is not None else 0.01
+        act = lambda z: leaky_relu(z, alpha=a)
+        act_deriv = lambda z: leaky_relu_deriv(z, alpha=a)
+    elif activation_name == "elu":
+        a = float(alpha) if alpha is not None else 1.0
+        act = lambda z: elu(z, alpha=a)
+        act_deriv = lambda z: elu_deriv(z, alpha=a)
+    elif activation_name == "swish":
+        b = float(beta) if beta is not None else 1.0
+        act = lambda z: swish(z, beta=b)
+        act_deriv = lambda z: swish_deriv(z, beta=b)
+    else:
+        act, act_deriv = ACTIVATIONS[activation_name]
+
+    params = init_params(1, hidden_units, 1, seed=seed)
+    losses = []
+    loss_epochs = []
+    n_batches = int(np.ceil(N / batch_size))
+
+    for ep in range(epochs):
+        perm = rng.permutation(N)
+        X_sh = X[perm]
+        Y_sh = Y[perm]
+
+        for i in range(n_batches):
+            start = i * batch_size
+            xb = X_sh[start:start + batch_size]
+            yb = Y_sh[start:start + batch_size]
+
+            Z1, A1, Z2 = forward(params, xb, act)
+            pred = Z2
+            dZ2 = (2.0 / xb.shape[0]) * (pred - yb)
+
+            W1, b1, W2, b2 = params
+            dW2 = A1.T.dot(dZ2)
+            db2 = np.sum(dZ2, axis=0, keepdims=True)
+
+            dA1 = dZ2.dot(W2.T)
+            dZ1 = dA1 * act_deriv(Z1)
+
+            dW1 = xb.T.dot(dZ1)
+            db1 = np.sum(dZ1, axis=0, keepdims=True)
+
+            # gradient descent
+            params[0] -= lr * dW1
+            params[1] -= lr * db1
+            params[2] -= lr * dW2
+            params[3] -= lr * db2
+
+        if ep % max(1, epochs // 50) == 0 or ep == epochs - 1:
+            _, _, Z2_full = forward(params, X, act)
+            cur_loss = mse(Y, Z2_full)
+            losses.append(float(cur_loss))
+            loss_epochs.append(ep)
+
+    # predictions on test grid
+    X_test = np.linspace(-6, 6, 400).reshape(-1, 1)
+    _, _, Y_pred = forward(params, X_test, act)
+
+    return jsonify({
+        "loss_epochs": loss_epochs,
+        "losses": losses,
+        "x_test": X_test.flatten().tolist(),
+        "y_pred": Y_pred.flatten().tolist(),
+        "y_true": np.sin(X_test).flatten().tolist()
     })
 
 if __name__ == "__main__":

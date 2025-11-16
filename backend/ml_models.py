@@ -157,3 +157,49 @@ def compute_contour_grid(X, y, theta0_vals, theta1_vals):
             Jtmp, _, _ = compute_linear_loss_and_grad(t, X, y)
             JJ[i, j] = Jtmp
     return T0, T1, JJ
+
+
+## activation functions
+def sigmoid(x): return 1 / (1 + np.exp(-x))
+def sigmoid_deriv(x): s = sigmoid(x); return s * (1 - s)
+def tanh(x): return np.tanh(x)
+def tanh_deriv(x): return 1 - np.tanh(x)**2
+def relu(x): return np.maximum(0, x)
+def relu_deriv(x): return (x > 0).astype(float)
+def leaky_relu(x, alpha=0.01): return np.where(x >= 0, x, alpha * x)
+def leaky_relu_deriv(x, alpha=0.01): return np.where(x >= 0, 1.0, alpha)
+def elu(x, alpha=1.0): return np.where(x >= 0, x, alpha * (np.exp(x) - 1))
+def elu_deriv(x, alpha=1.0): return np.where(x >= 0, 1.0, alpha * np.exp(x))
+def swish(x, beta=1.0): return x * sigmoid(beta * x)
+def swish_deriv(x, beta=1.0):
+    s = sigmoid(beta * x); return s + beta * x * s * (1 - s)
+def mish(x):
+    soft = np.log1p(np.exp(x)); return x * np.tanh(soft)
+def mish_deriv(x):
+    soft = np.log1p(np.exp(x)); tanh_soft = np.tanh(soft); return tanh_soft + x*(1 - tanh_soft**2)*sigmoid(x)
+
+ACTIVATIONS = {
+    "sigmoid": (sigmoid, sigmoid_deriv),
+    "tanh": (tanh, tanh_deriv),
+    "relu": (relu, relu_deriv),
+    "leaky_relu": (leaky_relu, leaky_relu_deriv),
+    "elu": (elu, elu_deriv),
+    "swish": (swish, swish_deriv),
+    "mish": (mish, mish_deriv),
+}
+def mse(y_true, y_pred): return np.mean((y_true - y_pred)**2)
+
+def forward(params, X_batch, activation_hidden):
+    W1, b1, W2, b2 = params
+    Z1 = X_batch.dot(W1) + b1
+    A1 = activation_hidden(Z1)
+    Z2 = A1.dot(W2) + b2
+    return Z1, A1, Z2
+
+def init_params(in_dim, hidden_dim, out_dim, scale=0.1, seed=1):
+    rng = np.random.RandomState(seed)
+    W1 = rng.randn(in_dim, hidden_dim) * scale
+    b1 = np.zeros((1, hidden_dim))
+    W2 = rng.randn(hidden_dim, out_dim) * scale
+    b2 = np.zeros((1, out_dim))
+    return [W1, b1, W2, b2]

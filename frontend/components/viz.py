@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
+import altair as alt
+import pandas as pd
 
 
 def plot_linear_visuals(data_sample, theta_closed, thetas, losses, grads, contour, step):
@@ -82,4 +84,18 @@ def plot_quadratic_visuals(thetas, losses, grads, step):
         ax2.set_xlabel("Step")
         ax2.set_ylabel("J(θ)")
         st.pyplot(fig2)
+
+def alt_line_chart(df, x_col, y_col, title=None, width=None, height=300):
+    chart = alt.Chart(df).mark_line().encode(x=x_col, y=y_col, tooltip=[x_col, y_col])
+    if title:
+        chart = chart.properties(title=title, width=width, height=height)
+    return chart
+
+def plot_activation(x, y, name):
+    df = pd.DataFrame({"x": x, name: y})
+    return alt_line_chart(df, "x", name, title=f"{name} — value")
+
+def plot_derivative(x, dy):
+    df = pd.DataFrame({"x": x, "derivative": dy})
+    return alt_line_chart(df, "x", "derivative", title="Derivative")
 

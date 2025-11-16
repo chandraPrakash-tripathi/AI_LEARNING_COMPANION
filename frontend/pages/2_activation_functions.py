@@ -1,11 +1,18 @@
+# app.py
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
+import altair as alt
 from functools import partial
+import requests
+import json
 
-st.set_page_config(page_title="Activation Fucntion Playground", layout="wide")
+# ---------- Config ----------
+BACKEND = "http://localhost:5000"  # change to your backend URL if needed
 
+st.set_page_config(page_title="Activation Function Playground", layout="wide")
 
+# ---------- Activation functions ----------
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
@@ -13,13 +20,11 @@ def sigmoid_deriv(x):
     s = sigmoid(x)
     return s * (1 - s)
 
-
 def tanh(x):
     return np.tanh(x)
 
 def tanh_deriv(x):
     return 1 - np.tanh(x) ** 2
-
 
 def relu(x):
     return np.maximum(0, x)
@@ -27,20 +32,17 @@ def relu(x):
 def relu_deriv(x):
     return (x > 0).astype(float)
 
-
 def leaky_relu(x, alpha=0.01):
     return np.where(x >= 0, x, alpha * x)
 
 def leaky_relu_deriv(x, alpha=0.01):
     return np.where(x >= 0, 1.0, alpha)
 
-
 def elu(x, alpha=1.0):
     return np.where(x >= 0, x, alpha * (np.exp(x) - 1))
 
 def elu_deriv(x, alpha=1.0):
     return np.where(x >= 0, 1.0, alpha * np.exp(x))
-
 
 def swish(x, beta=1.0):
     return x * sigmoid(beta * x)
@@ -49,19 +51,15 @@ def swish_deriv(x, beta=1.0):
     s = sigmoid(beta * x)
     return s + beta * x * s * (1 - s)
 
-
 def mish(x):
-    # mish: x * tanh(softplus(x)) where softplus = ln(1+e^x)
     soft = np.log1p(np.exp(x))
     return x * np.tanh(soft)
 
 def mish_deriv(x):
-    # Approximate derivative (good enough for demonstration)
     soft = np.log1p(np.exp(x))
     tanh_soft = np.tanh(soft)
     sigmoid_x = sigmoid(x)
     return tanh_soft + x * (1 - tanh_soft**2) * sigmoid_x
-
 
 ACTIVATIONS = {
     "sigmoid": (sigmoid, sigmoid_deriv),
@@ -73,10 +71,7 @@ ACTIVATIONS = {
     "mish": (mish, mish_deriv),
 }
 
-# -------------------- UI --------------------
-
-
-
+# ---------- Sidebar controls ----------
 with st.sidebar:
     st.header("Controls")
     activation_name = st.selectbox("Activation", list(ACTIVATIONS.keys()), index=3)
@@ -100,10 +95,9 @@ with st.sidebar:
     epochs = st.slider("Training epochs", 1, 1000, 200)
     lr = st.number_input("Learning rate", min_value=1e-6, max_value=1.0, value=0.01, format="%.6f")
     batch_size = st.slider("Batch size", 4, 128, 32)
-    train_button = st.button("Train toy model")
+    train_button = st.button("Train toy model (backend)")
 
-# -------------------- Plot activation and derivative --------------------
-
+# ---------- Prepare functions and data (local for plots) ----------
 x = np.linspace(input_min, input_max, 400)
 act_fn, act_deriv_fn = ACTIVATIONS[activation_name]
 
@@ -124,145 +118,132 @@ else:
 y = act(x)
 dy = act_deriv(x)
 
+# ---------- Helper to make Altair charts easily ----------
+def alt_line_chart(df, x_col, y_col, title=None, width=None, height=300):
+    chart = alt.Chart(df).mark_line().encode(
+        x=x_col, y=y_col, tooltip=[x_col, y_col]
+    )
+    props = {}
+    if title is not None:
+        props["title"] = title
+    if width is not None:
+        props["width"] = width
+    if height is not None:
+        props["height"] = height
+    if props:
+        chart = chart.properties(**props)
+    return chart
+
+
+# ---------- Layout: Activation + Derivative ----------
 col1, col2 = st.columns([1, 1])
 with col1:
-    fig, ax = plt.subplots(figsize=(6, 3.5))
-    ax.plot(x, y)
-    ax.set_title(f"{activation_name} — value")
-    ax.grid(True)
-    st.pyplot(fig)
+    st.subheader(f"{activation_name} — value")
+    df_val = pd.DataFrame({"x": x, f"{activation_name}(x)": y})
+    chart_val = alt_line_chart(df_val, "x", f"{activation_name}(x)")
+    st.altair_chart(chart_val, use_container_width=True)
 
 with col2:
-    fig2, ax2 = plt.subplots(figsize=(6, 3.5))
+    st.subheader(f"{activation_name} — derivative")
     if show_derivative:
-        ax2.plot(x, dy)
-        ax2.set_title(f"{activation_name} — derivative")
-        ax2.grid(True)
+        df_der = pd.DataFrame({"x": x, "derivative": dy})
+        chart_der = alt_line_chart(df_der, "x", "derivative")
+        st.altair_chart(chart_der, use_container_width=True)
     else:
-        ax2.text(0.5, 0.5, "Derivative hidden (toggle from sidebar)", ha='center')
-    st.pyplot(fig2)
+        st.info("Derivative hidden (toggle from sidebar)")
 
-# -------------------- Sample values table --------------------
-
+# ---------- Sample values table ----------
 st.subheader("Sample inputs → activation outputs")
 xs = np.linspace(input_min, input_max, sample_points)
 outs = act(xs)
+sample_df = pd.DataFrame({"x": xs, f"{activation_name}(x)": outs})
+st.dataframe(sample_df)
 
-sample_table = np.vstack([xs, outs]).T
-st.dataframe({"x": xs, f"{activation_name}(x)": outs})
-
-# -------------------- Toy NN (single hidden layer) --------------------
-
-st.markdown("---")
-st.write("This trains a tiny 1-hidden-layer network (NumPy) using the selected activation in the hidden layer. Predictions and loss curve will be shown.")
-
-# Prepare dataset
+# ---------- Toy NN (single hidden layer) dataset (local, for plotting training results) ----------
 rng = np.random.RandomState(42)
 N = 256
 X = rng.uniform(-6, 6, size=(N, 1))
 Y = np.sin(X)
 
-# simple utilities
-
-def mse(y_true, y_pred):
-    return np.mean((y_true - y_pred) ** 2)
-
-
-def forward(params, X_batch, activation_hidden):
-    W1, b1, W2, b2 = params
-    Z1 = X_batch.dot(W1) + b1  # (B, H)
-    A1 = activation_hidden(Z1)
-    Z2 = A1.dot(W2) + b2      # (B, 1)
-    return Z1, A1, Z2
-
-
-def init_params(in_dim, hidden_dim, out_dim, scale=0.1):
-    rng = np.random.RandomState(1)
-    W1 = rng.randn(in_dim, hidden_dim) * scale
-    b1 = np.zeros((1, hidden_dim))
-    W2 = rng.randn(hidden_dim, out_dim) * scale
-    b2 = np.zeros((1, out_dim))
-    return [W1, b1, W2, b2]
-
-# training loop (vectorized)
-
-params = init_params(1, hidden_units, 1)
+# ---------- Train: call backend ----------
+st.markdown("---")
+st.write("This will call the backend to train a tiny 1-hidden-layer network using the selected activation in the hidden layer. Predictions and loss curve returned by backend will be shown here.")
 
 if train_button:
-    losses = []
-    n_batches = int(np.ceil(N / batch_size))
+    payload = {
+        "activation": activation_name,
+        "hidden_units": int(hidden_units),
+        "epochs": int(epochs),
+        "lr": float(lr),
+        "batch_size": int(batch_size),
+        # include activation params if any
+        "alpha": float(alpha) if alpha is not None else None,
+        "beta": float(beta) if beta is not None else None,
+        "seed": 42
+    }
 
-    for ep in range(epochs):
-        # shuffle
-        perm = rng.permutation(N)
-        X_sh = X[perm]
-        Y_sh = Y[perm]
+    # call backend
+    with st.spinner("Sending training job to backend..."):
+        try:
+            resp = requests.post(f"{BACKEND}/train", json=payload, timeout=600)
+        except requests.exceptions.RequestException as e:
+            st.error(f"Request failed: {e}")
+            st.stop()
 
-        for i in range(n_batches):
-            start = i * batch_size
-            end = start + batch_size
-            xb = X_sh[start:end]
-            yb = Y_sh[start:end]
+    if resp.status_code == 200:
+        try:
+            data = resp.json()
+        except json.JSONDecodeError:
+            st.error("Backend did not return valid JSON.")
+            st.stop()
 
-            # forward
-            Z1, A1, Z2 = forward(params, xb, act)
+        # show results
+        st.subheader("Training finished (backend)")
+        if "losses" in data and len(data["losses"]) > 0:
+            st.write(f"Sampled losses: {data['losses'][:5]} ... (final {data['losses'][-1]:.6f})")
 
-            # loss and gradient at output (MSE)
-            pred = Z2
-            loss = mse(yb, pred)
+            loss_df = pd.DataFrame({"epoch": data["loss_epochs"], "mse": data["losses"]})
+            st.altair_chart(alt_line_chart(loss_df, "epoch", "mse", title="Loss curve"), use_container_width=True)
+        else:
+            st.info("No loss data returned by backend.")
 
-            # gradients (manual backprop)
-            dZ2 = (2.0 / xb.shape[0]) * (pred - yb)  # (B,1)
-            W1, b1, W2, b2 = params
+        if all(k in data for k in ("x_test", "y_pred", "y_true")):
+            pred_df = pd.DataFrame({
+                "x": data["x_test"],
+                "y_pred": data["y_pred"],
+                "y_true": data["y_true"]
+            })
 
-            dW2 = A1.T.dot(dZ2)                      # (H,1)
-            db2 = np.sum(dZ2, axis=0, keepdims=True) # (1,1)
+            # original training points
+            train_df = pd.DataFrame({"x": X.flatten(), "y": Y.flatten()})
+            points = alt.Chart(train_df).mark_circle(size=20).encode(
+                x="x:Q",
+                y="y:Q",
+                tooltip=["x", "y"]
+            )
 
-            # backprop into hidden
-            dA1 = dZ2.dot(W2.T)                      # (B,H)
-            dZ1 = dA1 * act_deriv(Z1)                # (B,H)
+            pred_line = alt.Chart(pred_df).mark_line().encode(
+                x="x:Q",
+                y="y_pred:Q",
+                tooltip=["x", "y_pred"]
+            )
 
-            dW1 = xb.T.dot(dZ1)                      # (1,H)
-            db1 = np.sum(dZ1, axis=0, keepdims=True) # (1,H)
+            true_line = alt.Chart(pred_df).mark_line(strokeDash=[5,5]).encode(
+                x="x:Q",
+                y="y_true:Q",
+                tooltip=["x", "y_true"]
+            )
 
-            # gradient descent step
-            params[0] -= lr * dW1
-            params[1] -= lr * db1
-            params[2] -= lr * dW2
-            params[3] -= lr * db2
+            layered = alt.layer(points, pred_line, true_line).properties(title="Model fit")
+            st.altair_chart(layered, use_container_width=True)
 
-        # evaluate on full set every 10 epochs
-        if (ep % max(1, epochs // 20)) == 0 or ep == epochs - 1:
-            _, _, Z2_full = forward(params, X, act)
-            cur_loss = mse(Y, Z2_full)
-            losses.append(cur_loss)
-
-    # After training show results
-    st.subheader("Training finished")
-    st.write(f"Final MSE: {losses[-1]:.6f}")
-
-    # show loss curve
-    fig3, ax3 = plt.subplots(figsize=(6, 3))
-    ax3.plot(np.linspace(0, epochs, len(losses)), losses)
-    ax3.set_xlabel("Epoch")
-    ax3.set_ylabel("MSE")
-    ax3.set_title("Loss curve (sampled points)")
-    st.pyplot(fig3)
-
-    # show predictions
-    X_test = np.linspace(-6, 6, 400).reshape(-1, 1)
-    _, _, Y_pred = forward(params, X_test, act)
-
-    fig4, ax4 = plt.subplots(figsize=(8, 4))
-    ax4.scatter(X.flatten(), Y.flatten(), s=10, label="train data")
-    ax4.plot(X_test.flatten(), Y_pred.flatten(), label="model pred", linewidth=2)
-    ax4.plot(X_test.flatten(), np.sin(X_test).flatten(), label="true sin(x)", linestyle='--')
-    ax4.legend()
-    ax4.set_title("Model fit")
-    st.pyplot(fig4)
+            # also show small preview table
+            st.subheader("Predictions (sample)")
+            st.dataframe(pred_df.head(10))
+        else:
+            st.info("No predictions returned by backend.")
+    else:
+        st.error(f"Training failed: {resp.status_code} {resp.text}")
 
 else:
-    st.info("Click 'Train toy model' in the sidebar to train a small network using the selected activation.")
-
-
-
+    st.info("Click 'Train toy model (backend)' in the sidebar to train a small network using the selected activation.")
