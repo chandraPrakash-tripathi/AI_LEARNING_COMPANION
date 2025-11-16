@@ -163,7 +163,7 @@ def main():
         if st.session_state.step_idx < len(st.session_state.thetas) - 1:
             st.session_state.step_idx += 1
             time.sleep(0.08)
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.session_state.playing = False
 
