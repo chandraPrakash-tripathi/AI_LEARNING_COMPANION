@@ -1,13 +1,17 @@
+import time
+import traceback
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 from ml_models import (
     ACTIVATIONS,
+    build_model_safe,
     elu,
     elu_deriv,
     init_params,
     leaky_relu,
     leaky_relu_deriv,
+    load_dataset,
     make_linear_dataset,
     mse,
     run_gradient_descent_linear,
@@ -16,6 +20,13 @@ from ml_models import (
     swish,
     swish_deriv,
     forward
+)
+from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
+from scipy.stats import uniform
+from sklearn.metrics import (
+    confusion_matrix, roc_auc_score,
+    roc_curve
 )
 
 app = Flask(__name__)
@@ -246,6 +257,135 @@ def train_endpoint():
         "y_pred": Y_pred.flatten().tolist(),
         "y_true": np.sin(X_test).flatten().tolist()
     })
+
+## Hyperparameter tuning endpoint
+@app.route("/train", methods=["POST"])
+def train():
+    start = time.time()
+    try:
+        payload = request.get_json(force=True)
+        dataset_spec = payload.get("dataset", "Iris")
+        X, y, feature_names = load_dataset(dataset_spec)
+        model_name = payload.get("model", "LogisticRegression")
+        hyperparams = payload.get("hyperparams", {}) or {}
+        prep = payload.get("preprocessing", {}) or {}
+        test_size = float(payload.get("test_size", 0.2))
+        random_state = int(payload.get("random_state", 42))
+        cv_folds = int(payload.get("cv_folds", 1))
+        search = payload.get("search", {"mode": "none"})
+        seeds = payload.get("seeds", [random_state])
+
+        results = []
+        grid_heatmap = None
+
+        for seed in seeds:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X, y, test_size=test_size, random_state=seed, stratify=y if len(np.unique(y))>1 else None
+            )
+
+            # preprocessing
+            deg = int(prep.get("poly_degree", 1) or 1)
+            if deg > 1:
+                pf = PolynomialFeatures(deg, include_bias=False)
+                X_train = pf.fit_transform(X_train)
+                X_test = pf.transform(X_test)
+
+            if prep.get("scale") == "standard":
+                scaler = StandardScaler()
+                X_train = scaler.fit_transform(X_train)
+                X_test = scaler.transform(X_test)
+            elif prep.get("scale") == "minmax":
+                scaler = MinMaxScaler()
+                X_train = scaler.fit_transform(X_train)
+                X_test = scaler.transform(X_test)
+
+            if search and search.get("mode") in ("grid", "random"):
+                mode = search.get("mode")
+                param_grid = search.get("param_grid", {})
+                base_model = build_model_safe(model_name, hyperparams)
+                if mode == "grid":
+                    gs = GridSearchCV(base_model, param_grid=param_grid, cv=max(2, min(5, cv_folds or 3)))
+                    gs.fit(X_train, y_train)
+                    best = gs.best_estimator_
+                    best_params = gs.best_params_
+                    # heatmap for exactly two params
+                    if len(param_grid.keys()) == 2:
+                        keys = list(param_grid.keys())
+                        vals1 = param_grid[keys[0]]
+                        vals2 = param_grid[keys[1]]
+                        heat = []
+                        for v1 in vals1:
+                            row = []
+                            for v2 in vals2:
+                                params = dict(best_params)
+                                params.update({keys[0]: v1, keys[1]: v2})
+                                m = build_model_safe(model_name, params)
+                                m.fit(X_train, y_train)
+                                row.append(m.score(X_test, y_test))
+                            heat.append(row)
+                        grid_heatmap = {
+                            "x_name": keys[0], "y_name": keys[1],
+                            "x_vals": list(map(str, vals1)), "y_vals": list(map(str, vals2)),
+                            "scores": heat
+                        }
+                else:
+                    # RandomizedSearchCV: pass param_distributions directly (lists are fine)
+                    rs = RandomizedSearchCV(build_model_safe(model_name, hyperparams), param_distributions=param_grid,
+                                            n_iter=int(search.get("n_iter", 20)), cv=max(2, min(5, cv_folds or 3)), random_state=seed)
+                    rs.fit(X_train, y_train)
+                    best = rs.best_estimator_
+                    best_params = rs.best_params_
+            else:
+                best = build_model_safe(model_name, hyperparams)
+                best.fit(X_train, y_train)
+                best_params = hyperparams or {}
+
+            train_score = best.score(X_train, y_train)
+            val_score = best.score(X_test, y_test)
+
+            metrics = {"train_accuracy": float(train_score), "val_accuracy": float(val_score), "params": best_params}
+            try:
+                y_pred = best.predict(X_test)
+                metrics["confusion_matrix"] = confusion_matrix(y_test, y_pred).tolist()
+            except Exception:
+                metrics["confusion_matrix"] = None
+
+            try:
+                if hasattr(best, "predict_proba"):
+                    probs = best.predict_proba(X_test)
+                    if probs.shape[1] == 2:
+                        metrics["roc_auc"] = float(roc_auc_score(y_test, probs[:, 1]))
+                        fpr, tpr, _ = roc_curve(y_test, probs[:, 1])
+                        metrics["roc_curve"] = {"fpr": fpr.tolist(), "tpr": tpr.tolist()}
+                    else:
+                        metrics["roc_auc"] = float(roc_auc_score(y_test, probs, multi_class="ovr"))
+                else:
+                    metrics["roc_auc"] = None
+            except Exception:
+                metrics["roc_auc"] = None
+
+            try:
+                if hasattr(best, "feature_importances_"):
+                    metrics["feature_importances"] = dict(zip(feature_names, list(map(float, best.feature_importances_[:len(feature_names)]))))
+                elif hasattr(best, "coef_"):
+                    coef = np.array(best.coef_)
+                    if coef.ndim > 1:
+                        coef = coef.mean(axis=0)
+                    metrics["coefficients"] = dict(zip(feature_names, list(map(float, coef[:len(feature_names)]))))
+            except Exception:
+                pass
+
+            results.append(metrics)
+
+        resp = {"status": "ok", "time_taken": time.time() - start, "results": results}
+        if grid_heatmap:
+            resp["grid_heatmap"] = grid_heatmap
+        return jsonify(resp)
+    except Exception as e:
+        tb = traceback.format_exc()
+        print(tb)
+        return jsonify({"status": "error", "message": str(e), "traceback": tb}), 400
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
