@@ -219,8 +219,6 @@ def init_params(in_dim, hidden_dim, out_dim, scale=0.1, seed=1):
 
 
 #hyperparameter tuning function for simple NN on sin(x)
-
-
 MODEL_MAP = {
     "LogisticRegression": LogisticRegression,
     "SVM": SVC,
