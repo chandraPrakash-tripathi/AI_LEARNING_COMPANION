@@ -1,1 +1,1 @@
-backend_url = "http://localhost:5000"
+backend_url = "https://ai-learning-companion-nwj2.onrender.com"

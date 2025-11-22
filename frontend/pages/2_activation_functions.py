@@ -6,12 +6,11 @@ import altair as alt
 from functools import partial
 import requests
 import json
-
+from components.constants import BACKEND_URL
 from components.activations import ACTIVATIONS, elu, elu_deriv, leaky_relu, leaky_relu_deriv, swish, swish_deriv
 from components.viz import alt_line_chart, render_activation_plots
 from components.ui_sidebar import render_toolbar
 
-BACKEND = "http://localhost:5000"
 
 st.set_page_config(page_title="Activation Function Playground", layout="wide")
 
@@ -93,7 +92,7 @@ if train_button:
     # call backend
     with st.spinner("Sending training job to backend..."):
         try:
-            resp = requests.post(f"{BACKEND}/train", json=payload, timeout=600)
+            resp = requests.post(f"{BACKEND_URL}/train", json=payload, timeout=600)
         except requests.exceptions.RequestException as e:
             st.error(f"Request failed: {e}")
             st.stop()
