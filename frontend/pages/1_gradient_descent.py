@@ -1,7 +1,6 @@
 import streamlit as st
 import numpy as np
 import time
-from components.constants import backend_url
 from components.session_state import ensure_session_state_keys
 from components.ui_sidebar import render_sidebar
 from components.ui_controls import render_controls_stepplay
