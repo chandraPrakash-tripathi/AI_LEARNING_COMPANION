@@ -1,17 +1,9 @@
 # backend/ml_models.py
 import numpy as np
 from sklearn.datasets import make_regression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC
-from sklearn import datasets
-from sklearn.linear_model import LogisticRegression, SGDClassifier
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
+from sklearn.linear_model import LinearRegression
+
+
 import pandas as pd
 # ---------- basic losses / grads ----------
 def quadratic_loss(theta):

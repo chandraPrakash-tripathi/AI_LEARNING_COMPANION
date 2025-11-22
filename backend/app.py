@@ -1,18 +1,14 @@
-import time
-import traceback
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 import os
 from ml_models import (
     ACTIVATIONS,
-    build_model_safe,
     elu,
     elu_deriv,
     init_params,
     leaky_relu,
     leaky_relu_deriv,
-    load_dataset,
     make_linear_dataset,
     mse,
     run_gradient_descent_linear,
@@ -22,13 +18,7 @@ from ml_models import (
     swish_deriv,
     forward
 )
-from sklearn.model_selection import train_test_split, GridSearchCV, RandomizedSearchCV
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, PolynomialFeatures
-from scipy.stats import uniform
-from sklearn.metrics import (
-    confusion_matrix, roc_auc_score,
-    roc_curve
-)
+
 
 app = Flask(__name__)
 CORS(app)
