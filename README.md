@@ -14,7 +14,7 @@ An interactive educational web app designed to help understand **Machine Learnin
 * Interactive sliders and controls
 
 This project replicates the experience of an “ML playground” — perfect for learning, teaching, and demonstrating ML fundamentals.
-
+Also it implements CI/CD using GitHub Actions with two workflow pipelines: dev and main.
 ---
 
 ## Key Features
@@ -31,17 +31,7 @@ This project replicates the experience of an “ML playground” — perfect for
 * Visual + mathematical formula breakdown.
 * Adjustable input domain & parameters.
 
-### 3. **Hyperparameter Experimentation**
-
-* Modify:
-
-  * learning rate
-  * epochs
-  * batch size
-  * regularization strength
-* Visualize how hyperparameters influence training.
-
-### 4. **ML Model Comparison Dashboard**
+### 3. **ML Model Comparison Dashboard**
 
 * Compare classic ML models:
 
