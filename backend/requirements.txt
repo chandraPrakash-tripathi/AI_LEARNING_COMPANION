@@ -1,0 +1,10 @@
+streamlit
+flask
+numpy
+matplotlib
+requests
+scikit-learn
+pytest
+flask-cors
+scipy
+gunicorn
