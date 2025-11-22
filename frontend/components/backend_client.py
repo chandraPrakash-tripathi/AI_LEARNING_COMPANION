@@ -1,9 +1,8 @@
 import requests
 import numpy as np
-from .constants import backend_url
 
 
-
+backend_url = "https://ai-learning-companion-nwj2.onrender.com"
 
 def fetch_contour_and_plot(theta0_range, theta1_range, resolution=80, *, n_samples, noise, x_scale, seed):
     payload = {

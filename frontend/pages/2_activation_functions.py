@@ -6,12 +6,11 @@ import altair as alt
 from functools import partial
 import requests
 import json
-from components.constants import BACKEND_URL
 from components.activations import ACTIVATIONS, elu, elu_deriv, leaky_relu, leaky_relu_deriv, swish, swish_deriv
 from components.viz import alt_line_chart, render_activation_plots
 from components.ui_sidebar import render_toolbar
 
-
+BACKEND_URL = "https://ai-learning-companion-nwj2.onrender.com"
 st.set_page_config(page_title="Activation Function Playground", layout="wide")
 
 #toolbar
