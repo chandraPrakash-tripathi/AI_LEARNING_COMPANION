@@ -1,4 +1,17 @@
+# Virtual environment
 venv/
+
+# Ignore Streamlit documentation file (if intentionally ignored)
 docs_streamlit.py
+
+# Python cache & bytecode
 __pycache__/
-__init__.py
+*.py[cod]
+*$py.class
+
+# Jupyter notebook checkpoints (optional)
+.ipynb_checkpoints/
+
+# Environment files
+.env
+.env*/
