@@ -1,1 +1,0 @@
-backend_url = "https://ai-learning-companion-nwj2.onrender.com"
