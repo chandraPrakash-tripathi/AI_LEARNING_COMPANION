@@ -11,7 +11,7 @@ def render_sidebar(state):
     with col1:
         mode = st.selectbox("Mode", ["Linear Regression", "Quadratic (1D)"])
     with col2:
-        optimizer = st.selectbox("Optimizer", ["Batch", "SGD", "Mini-batch", "Momentum", "RMSProp", "Adam"])
+        optimizer = st.selectbox("Optimizer Fucntion", ["Batch", "SGD", "Mini-batch", "Momentum", "RMSProp", "Adam"])
     with col3:
         seed = st.number_input("Seed", min_value=0, value=42)
 
